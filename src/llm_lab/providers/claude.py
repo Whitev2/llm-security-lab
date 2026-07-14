@@ -1,29 +1,4 @@
-"""Claude adapter for the LLMProvider port.
-
-This adapter is a thin, faithful mapping onto the official Anthropic SDK. It is
-NOT exercised by the offline test suite (which uses ``MockProvider``); it exists
-so the same security patterns and eval harness can run against the real model
-when ``ANTHROPIC_API_KEY`` is set.
-
-API facts encoded here (verified against the Anthropic Python SDK):
-
-* Client:  ``anthropic.Anthropic()`` reads ``ANTHROPIC_API_KEY`` from the
-  environment. We never hardcode a key.
-* Call:    ``client.messages.create(model="claude-opus-4-8", max_tokens=...,
-  messages=[...])``. ``response.content`` is a list of blocks; check
-  ``block.type == "text"`` before reading ``block.text``, and
-  ``block.type == "tool_use"`` for tool calls.
-* Refusal: check ``response.stop_reason == "refusal"`` before reading content.
-* Strict tools: each tool is ``{"name", "description", "strict": True,
-  "input_schema": {"type": "object", "properties": {...}, "required": [...],
-  "additionalProperties": False}}``. ``block.input`` is an already-parsed dict.
-* Operator channel: mid-conversation operator instructions are appended to the
-  ``messages`` array as ``{"role": "system", "content": "..."}`` (Opus 4.8),
-  NOT as a top-level ``system`` field. This is the prompt-injection-safe
-  operator channel. Such a message must follow a user message and be last or
-  followed by an assistant turn. The *initial* system prompt still uses the
-  top-level ``system`` parameter.
-"""
+"""Адаптер над Anthropic SDK. Оффлайн-тесты его не трогают (там MockProvider)."""
 
 from __future__ import annotations
 
@@ -35,15 +10,12 @@ DEFAULT_MODEL = "claude-opus-4-8"
 
 
 class ClaudeProvider(LLMProvider):
-    """Adapter over ``anthropic.Anthropic``."""
-
     def __init__(self, model: str = DEFAULT_MODEL, client: Any | None = None) -> None:
         self.model = model
         if client is not None:
             self._client = client
         else:
-            # Imported lazily so the package (and the offline tests) never
-            # require the SDK or an API key to be present.
+            # lazy import: без ключа/SDK пакет и оффлайн-тесты всё равно грузятся
             import anthropic
 
             self._client = anthropic.Anthropic()
@@ -70,7 +42,7 @@ class ClaudeProvider(LLMProvider):
 
         response = self._client.messages.create(**kwargs)
 
-        # Handle refusals BEFORE reading content blocks.
+        # refusal обработать до чтения content-блоков
         if response.stop_reason == "refusal":
             return LLMResponse(text="", stop_reason="refusal")
 
@@ -80,7 +52,7 @@ class ClaudeProvider(LLMProvider):
             if block.type == "text":
                 text_parts.append(block.text)
             elif block.type == "tool_use":
-                # block.input is already a parsed dict.
+                # block.input уже распарсенный dict
                 tool_calls.append(
                     ToolCall(id=block.id, name=block.name, input=block.input)
                 )
@@ -94,7 +66,7 @@ class ClaudeProvider(LLMProvider):
     @staticmethod
     def _to_api_message(m: Message) -> dict[str, Any]:
         if m.role is Role.TOOL_RESULT:
-            # Tool results ride on a user turn as a tool_result content block.
+            # tool_result едет как content-блок внутри user-хода
             return {
                 "role": "user",
                 "content": [
@@ -105,8 +77,6 @@ class ClaudeProvider(LLMProvider):
                     }
                 ],
             }
-        # USER, ASSISTANT, and the mid-conversation SYSTEM operator channel all
-        # map to their literal role string with plain-text content.
         return {"role": m.role.value, "content": m.content}
 
     @staticmethod

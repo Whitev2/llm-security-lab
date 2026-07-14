@@ -1,17 +1,4 @@
-"""Defense-in-depth primitives against prompt injection.
-
-Each defense is a small, independently testable unit. No single one is
-sufficient; layered, they form the "defense in depth" this lab argues for.
-
-1. ``spotlight_untrusted``        — delimit external content as data.
-2. ``operator_message``           — the injection-safe operator channel
-                                     (mid-conversation ``role="system"``).
-3. ``InjectionGuardrail``         — regex/heuristic detector + classifier hook.
-4. Tool privilege separation      — see ``ToolPolicy`` (allow-list +
-                                     human-in-the-loop for dangerous tools).
-5. Output validation              — strict schemas; see
-                                     ``patterns/structured_output.py``.
-"""
+"""Примитивы defense-in-depth. По отдельности каждый слабый, работают слоями."""
 
 from __future__ import annotations
 
@@ -21,45 +8,19 @@ from dataclasses import dataclass, field
 
 from ..providers import DATA_CLOSE, DATA_OPEN, Message, Role
 
-# ---------------------------------------------------------------------------
-# Defense 1: untrusted-content spotlighting / delimiting
-# ---------------------------------------------------------------------------
-
 
 def spotlight_untrusted(text: str) -> str:
-    """Wrap external/untrusted content in explicit data delimiters.
-
-    The model is instructed (in the operator/system prompt) to treat anything
-    between these markers as data only. Any delimiter characters already present
-    in ``text`` are neutralized so untrusted content can't "break out" of the
-    wrapper.
-    """
+    # чистим уже присутствующие делимитеры, чтобы контент не "вырвался"
     escaped = text.replace(DATA_OPEN, "").replace(DATA_CLOSE, "")
     return f"{DATA_OPEN}{escaped}{DATA_CLOSE}"
 
 
-# ---------------------------------------------------------------------------
-# Defense 2: the operator channel (mid-conversation system message)
-# ---------------------------------------------------------------------------
-
-
 def operator_message(instruction: str) -> Message:
-    """Build a trusted operator instruction carried on ``role="system"``.
-
-    On Claude Opus 4.8 this maps to appending ``{"role": "system", ...}`` to the
-    ``messages`` array mid-conversation. Because operator instructions carry
-    system authority, untrusted user or tool text cannot spoof them — this is
-    the central, non-forgeable control channel of the whole design.
-    """
+    # доверенный операторский канал через role="system", подделать нельзя
     return Message(role=Role.SYSTEM, content=instruction)
 
 
-# ---------------------------------------------------------------------------
-# Defense 3: input/output guardrail (heuristic detector + classifier interface)
-# ---------------------------------------------------------------------------
-
-# Well-known override phrasings. A heuristic detector, not a proof — it is one
-# layer, paired with the structural defenses above.
+# эвристика, не доказательство — один из слоёв
 _GUARD_PATTERNS = [
     re.compile(r"ignore (all |your |the )?previous instructions", re.IGNORECASE),
     re.compile(r"disregard (all |the )?(above|prior|previous)", re.IGNORECASE),
@@ -71,21 +32,15 @@ _GUARD_PATTERNS = [
 
 @dataclass
 class GuardVerdict:
-    """Result of a guardrail check."""
-
     is_injection: bool
     reason: str = ""
 
 
-# A pluggable classifier: takes text, returns a verdict. In production this
-# would call an "is this a prompt injection?" LLM classifier; here it is an
-# interface so the heuristic and a model-based check are interchangeable.
+# в проде тут был бы LLM-классификатор; интерфейс чтобы можно было подменить
 Classifier = Callable[[str], GuardVerdict]
 
 
 class InjectionGuardrail:
-    """Heuristic-first guardrail with an optional classifier fallback."""
-
     def __init__(self, classifier: Classifier | None = None) -> None:
         self.classifier = classifier
 
@@ -101,20 +56,8 @@ class InjectionGuardrail:
         return GuardVerdict(is_injection=False)
 
 
-# ---------------------------------------------------------------------------
-# Defense 4: tool privilege separation (allow-list + human-in-the-loop)
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class ToolPolicy:
-    """Declarative policy the agent enforces before running any tool.
-
-    ``allow`` is the allow-list of tool names that may run at all.
-    ``require_confirmation`` names tools whose effects are hard to reverse and
-    therefore require an explicit human approval.
-    """
-
     allow: set[str] = field(default_factory=set)
     require_confirmation: set[str] = field(default_factory=set)
 

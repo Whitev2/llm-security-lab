@@ -1,5 +1,3 @@
-"""Output validation via strict schema is a structural guardrail."""
-
 import pytest
 from pydantic import ValidationError
 
@@ -14,7 +12,7 @@ def test_valid_payload_parses_to_model():
 
 
 def test_off_schema_payload_is_rejected():
-    # Missing a required field: the schema refuses it rather than passing junk on.
+    # нет обязательного поля — схема отклоняет
     with pytest.raises(ValidationError):
         _parse('{"name": "Jane"}')
 

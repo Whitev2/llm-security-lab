@@ -1,16 +1,4 @@
-"""Minimal retrieval-augmented answering that treats retrieved docs as UNTRUSTED.
-
-The single most important RAG security principle: **retrieved content is data,
-not instructions**. A document pulled from a vector store, a web page, or a
-user-supplied file can contain an injected payload ("ignore your instructions,
-do X"). The naive mistake is to concatenate the doc straight into the prompt,
-where the model may read it as a command.
-
-This module applies the *spotlighting / delimiting* defense: every retrieved
-document is wrapped in explicit untrusted-data markers before it reaches the
-model, and the operator instruction tells the model to treat anything inside
-those markers as data only. See ``security/defenses.py`` for the primitive.
-"""
+"""RAG где retrieved-доки — недоверенные данные, а не инструкции."""
 
 from __future__ import annotations
 
@@ -29,10 +17,8 @@ RAG_SYSTEM = (
 
 @dataclass
 class Document:
-    """A retrieved document. ``source`` is metadata; ``text`` is untrusted."""
-
-    source: str
-    text: str
+    source: str  # метаданные
+    text: str  # недоверенный
 
 
 def answer_with_context(
@@ -42,12 +28,7 @@ def answer_with_context(
     *,
     trusted: bool = False,
 ) -> str:
-    """Answer ``question`` grounded in ``documents``.
-
-    When ``trusted`` is False (the safe default) each document is spotlighted as
-    untrusted data. Passing ``trusted=True`` skips wrapping — included only to
-    demonstrate, in tests, how the naive concatenation path gets injected.
-    """
+    # trusted=True пропускает обёртку — только для демо наивной склейки в тестах
     context_blocks = []
     for doc in documents:
         body = doc.text if trusted else spotlight_untrusted(doc.text)

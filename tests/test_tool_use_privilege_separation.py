@@ -1,9 +1,4 @@
-"""Tests for tool privilege separation: allow-list + human-in-the-loop.
-
-Shows that even a compromised (naive) model cannot fire a dangerous tool when
-the agent enforces confirmation, and that an off-allow-list tool call is
-refused outright.
-"""
+"""Разделение привилегий тулов: allow-list + human-in-the-loop."""
 
 from llm_lab.patterns.tool_use import ToolAgent
 from llm_lab.providers import Message, MockMode, MockProvider, Role, ToolSpec
@@ -29,11 +24,11 @@ def _send_email_tool() -> ToolSpec:
 
 
 def test_dangerous_tool_blocked_without_confirmation():
-    # Naive model WILL try to call the dangerous tool because of the injection.
+    # naive из-за инъекции попытается вызвать dangerous-тул
     agent = ToolAgent(
         MockProvider(mode=MockMode.NAIVE),
         tools=[_send_email_tool()],
-        # default confirm policy denies all dangerous tools
+        # дефолтный confirm всё запрещает
     )
     agent.run([Message(role=Role.USER, content=INJECTED_TOOL_PROMPT)])
     assert "send_email" in agent.blocked
@@ -44,14 +39,14 @@ def test_dangerous_tool_runs_with_explicit_confirmation():
     agent = ToolAgent(
         MockProvider(mode=MockMode.NAIVE),
         tools=[_send_email_tool()],
-        confirm=lambda name, inp: True,  # a human approved it
+        confirm=lambda name, inp: True,  # человек подтвердил
     )
     agent.run([Message(role=Role.USER, content=INJECTED_TOOL_PROMPT)])
     assert "send_email" in agent.executed
 
 
 def test_off_allowlist_tool_is_refused():
-    # The model asks for a tool that isn't registered; the agent must refuse.
+    # тул не зарегистрирован — агент обязан отказать
     agent = ToolAgent(MockProvider(mode=MockMode.DEFENDED), tools=[])
     result = agent._dispatch("delete_everything", {})
     assert "not on the allow-list" in result

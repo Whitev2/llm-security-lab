@@ -1,10 +1,4 @@
-"""Run the prompt-injection eval harness offline against the mock demo agent.
-
-No API key required. Prints two reports: the NAIVE configuration (attacks
-succeed) and the DEFENDED configuration (attacks blocked).
-
-    python -m examples.run_harness
-"""
+"""Оффлайн-прогон harness по моку. python -m examples.run_harness"""
 
 from __future__ import annotations
 

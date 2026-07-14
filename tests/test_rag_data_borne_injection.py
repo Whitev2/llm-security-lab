@@ -1,5 +1,3 @@
-"""RAG: a data-borne injection succeeds naively and is blocked when spotlighted."""
-
 from llm_lab.patterns.rag import Document, answer_with_context
 from llm_lab.providers import COMPROMISE_MARKER, MockMode, MockProvider
 from llm_lab.security.attacks import by_name
@@ -11,7 +9,7 @@ _POISONED_DOC = Document(
 
 
 def test_naive_rag_is_injected_by_poisoned_document():
-    # trusted=True + naive model == the classic un-delimited concatenation bug.
+    # trusted=True + naive == классический баг склейки без делимитеров
     answer = answer_with_context(
         MockProvider(mode=MockMode.NAIVE),
         question="What was revenue?",
@@ -22,7 +20,7 @@ def test_naive_rag_is_injected_by_poisoned_document():
 
 
 def test_spotlighted_rag_blocks_the_injection():
-    # Defended: the doc is wrapped as untrusted data and the model treats it so.
+    # defended: док обёрнут как данные
     answer = answer_with_context(
         MockProvider(mode=MockMode.DEFENDED),
         question="What was revenue?",

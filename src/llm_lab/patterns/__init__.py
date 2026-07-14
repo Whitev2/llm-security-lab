@@ -1,5 +1,3 @@
-"""Clean, idiomatic LLM integration patterns."""
-
 from .rag import Document, answer_with_context
 from .structured_output import ContactInfo, extract_contact
 from .tool_use import ToolAgent

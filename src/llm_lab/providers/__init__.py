@@ -1,5 +1,3 @@
-"""LLM provider port and its adapters."""
-
 from .base import (
     LLMProvider,
     LLMResponse,

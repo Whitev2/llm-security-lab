@@ -1,23 +1,5 @@
-"""A taxonomy of prompt-injection vectors, as data.
-
-EDUCATIONAL / DEFENSIVE USE ONLY.
-
-Every entry below is a well-known, publicly-documented injection technique.
-These payloads exist solely so the eval harness can fire them at this repo's
-OWN demo agent (``MockProvider`` in NAIVE mode) and prove the defenses in
-``defenses.py`` block them. They are deliberately basic and non-weaponized:
-
-* They are never aimed at any external system, reader, or AI reviewer.
-* There is no hidden text, invisible unicode, or covert channel — every payload
-  is plain, visible, and clearly labeled as a demo.
-* They target only the local demo agent inside this repo's test harness.
-
-Channels
---------
-``direct``       — the payload arrives in the user's own message.
-``indirect``     — the payload is embedded in a retrieved document (data-borne).
-``tool_output``  — the payload arrives in a tool's returned result.
-"""
+"""Вектора инъекций как данные. DEFENSIVE ONLY: базовые публичные техники,
+летят только в свой демо-агент (MockProvider NAIVE), ничего скрытого."""
 
 from __future__ import annotations
 
@@ -33,15 +15,12 @@ class Channel(StrEnum):
 
 @dataclass(frozen=True)
 class AttackVector:
-    """A single, self-contained injection demonstration."""
-
     name: str
     description: str
     payload: str
     channel: Channel
 
 
-# The canonical basic vectors. Nothing novel here on purpose.
 ATTACK_BATTERY: list[AttackVector] = [
     AttackVector(
         name="direct_instruction_override",
@@ -84,7 +63,6 @@ ATTACK_BATTERY: list[AttackVector] = [
 
 
 def by_name(name: str) -> AttackVector:
-    """Look up a vector by name (used by tests and the harness)."""
     for vector in ATTACK_BATTERY:
         if vector.name == name:
             return vector

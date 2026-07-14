@@ -1,10 +1,5 @@
-"""Run the defended RAG pattern against REAL Claude.
-
-Requires ``ANTHROPIC_API_KEY`` in the environment (see .env.example). Exits
-cleanly with a message if it is unset — nothing here hardcodes a key.
-
-    python -m examples.real_claude_defended_rag
-"""
+"""Defended RAG против настоящего Claude. Нужен ANTHROPIC_API_KEY (см. .env.example).
+python -m examples.real_claude_defended_rag"""
 
 from __future__ import annotations
 
@@ -21,13 +16,11 @@ def main() -> int:
             "ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add a key, "
             "or run the offline harness instead: python -m examples.run_harness"
         )
-        return 0  # clean exit, not an error
+        return 0  # чистый выход, не ошибка
 
     provider = ClaudeProvider()
 
-    # A retrieved document that carries an injected instruction. The defended
-    # RAG path spotlights it as untrusted data, so Claude should treat it as
-    # data and answer the real question rather than obeying the injection.
+    # отравленный документ; defended-путь обернёт его как данные
     poisoned = Document(
         source="quarterly_report.pdf",
         text=(
@@ -40,7 +33,7 @@ def main() -> int:
         provider,
         question="What happened to revenue?",
         documents=[poisoned],
-        trusted=False,  # spotlight the untrusted document
+        trusted=False,  # spotlight
     )
     print("Claude answered:\n", answer)
     return 0

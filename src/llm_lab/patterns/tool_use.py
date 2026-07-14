@@ -1,20 +1,4 @@
-"""A small tool-using agent with a manual agent loop.
-
-Mirrors the real Claude manual loop: call the model; if
-``stop_reason == "tool_use"`` execute the requested tools, append the
-assistant turn and then the tool results, and repeat until the model stops
-calling tools (``stop_reason == "end_turn"``).
-
-Two defenses are wired in here directly:
-
-* **Privilege separation via an allow-list** — the agent will only execute a
-  tool that appears in ``tools``. A model (naive or manipulated) that names a
-  tool outside the allow-list gets an error result, not execution.
-* **Human-in-the-loop for dangerous tools** — tools flagged ``dangerous`` (hard
-  to reverse: send email, delete data) require an explicit ``confirm``
-  callback to return ``True`` before they run. Injected payloads that try to
-  trigger such a tool are blocked at this gate even if the model is compromised.
-"""
+"""Мини tool-агент с ручным циклом. Две защиты: allow-list + confirm на dangerous."""
 
 from __future__ import annotations
 
@@ -28,18 +12,14 @@ from ..providers import (
     ToolSpec,
 )
 
-# A confirm callback receives the tool name + input and returns True to proceed.
 ConfirmFn = Callable[[str, dict], bool]
 
 
 def _deny_all(_name: str, _input: dict) -> bool:
-    """Default confirmation policy: never auto-approve a dangerous tool."""
     return False
 
 
 class ToolAgent:
-    """Runs a bounded manual agent loop over the provider port."""
-
     def __init__(
         self,
         provider: LLMProvider,
@@ -49,11 +29,10 @@ class ToolAgent:
         max_steps: int = 4,
     ) -> None:
         self.provider = provider
-        # The allow-list is exactly the tool set we pass in.
+        # allow-list = ровно переданные тулы
         self.tools = {t.name: t for t in tools}
         self.confirm = confirm
         self.max_steps = max_steps
-        # Auditable record of what happened, for the eval harness.
         self.executed: list[str] = []
         self.blocked: list[str] = []
 
@@ -72,7 +51,6 @@ class ToolAgent:
             if response.stop_reason != "tool_use" or not response.tool_calls:
                 return response
 
-            # Record the assistant's tool-calling turn.
             convo.append(Message(role=Role.ASSISTANT, content=response.text))
 
             for call in response.tool_calls:
@@ -88,13 +66,12 @@ class ToolAgent:
         return response
 
     def _dispatch(self, name: str, tool_input: dict) -> str:
-        # Privilege separation: only allow-listed tools can run.
         tool = self.tools.get(name)
         if tool is None:
             self.blocked.append(name)
             return f"error: tool '{name}' is not on the allow-list"
 
-        # Human-in-the-loop gate for hard-to-reverse actions.
+        # dangerous — гейт human-in-the-loop
         if tool.dangerous and not self.confirm(name, tool_input):
             self.blocked.append(name)
             return f"error: '{name}' requires human confirmation and was not approved"
